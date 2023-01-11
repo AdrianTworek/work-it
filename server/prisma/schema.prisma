@@ -1,0 +1,199 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id               String            @id @default(uuid())
+  email            String            @unique
+  name             String            @db.VarChar(255)
+  password         String
+  role             RoleEnum?         @default(candidate)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  photo            String?           @db.VarChar(500)
+  candidateProfile CandidateProfile?
+  employerProfile  EmployerProfile?
+  preferences      Preferences?
+  offers           Offer[]
+  applications     Application[]
+  notifications    Notification[]
+
+  @@index([email])
+  @@map("users")
+}
+
+model CandidateProfile {
+  id              String               @id @default(uuid())
+  candidateId     String               @unique
+  phoneNumber     String?              @db.VarChar(30)
+  city            String?              @db.VarChar(255)
+  bio             String?              @db.VarChar(1000)
+  linkedInProfile String?              @db.VarChar(255)
+  githubProfile   String?              @db.VarChar(255)
+  cv              String?              @db.VarChar(500)
+  experienceLevel ExperienceLevelEnum? @default(junior)
+  candidate       User                 @relation(fields: [candidateId], references: [id], onUpdate: Cascade, onDelete: Cascade)
+
+  @@index([id, candidateId])
+  @@map("candidateProfiles")
+}
+
+model EmployerProfile {
+  id              String           @id @default(uuid())
+  employerId      String           @unique
+  phoneNumber     String?          @db.VarChar(30)
+  address         String?          @db.VarChar(255)
+  foundedIn       String?          @db.VarChar(255)
+  bio             String?          @db.VarChar(1000)
+  linkedInProfile String?          @db.VarChar(255)
+  websiteUrl      String?          @db.VarChar(255)
+  canCreateOffer  Boolean?         @default(false)
+  companySize     CompanySizeEnum? @default(small)
+  companyType     CompanyTypeEnum? @default(startup)
+  employer        User             @relation(fields: [employerId], references: [id], onUpdate: Cascade, onDelete: Cascade)
+
+  @@index([id, employerId])
+  @@map("employerProfiles")
+}
+
+model Preferences {
+  id            String             @id @default(uuid())
+  userId        String             @unique
+  category      String?
+  isRemote      Boolean?           @default(false)
+  companySize   CompanySizeEnum?   @default(small)
+  companyType   CompanyTypeEnum?   @default(startup)
+  salaryFrom    Float?
+  salaryTo      Float?
+  agreementType AgreementTypeEnum? @default(b2b)
+  user          User               @relation(fields: [userId], references: [id], onUpdate: Cascade, onDelete: Cascade)
+
+  @@index([id, userId])
+  @@map("preferences")
+}
+
+model Offer {
+  id               String              @id @default(uuid())
+  employerId       String
+  isVisible        Boolean             @default(true)
+  category         String
+  experienceLevel  ExperienceLevelEnum @default(junior)
+  positionName     String
+  location         String?
+  isRemote         Boolean?            @default(false)
+  responsibilities String[]
+  mustHaves        String[]
+  niceToHaves      String[]
+  benefits         String[]
+  salaryFrom       Float
+  salaryTo         Float
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+  agreementType    AgreementTypeEnum   @default(b2b)
+  employer         User                @relation(fields: [employerId], references: [id], onUpdate: Cascade, onDelete: Cascade)
+  applications     Application[]
+  recruitmentSteps RecruitmentStep[]
+
+  @@index([id, employerId])
+  @@map("offers")
+}
+
+model RecruitmentStep {
+  id              String   @id @default(uuid())
+  offerId         String
+  name            String
+  importanceLevel Int
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  ratings         Rating[]
+  offer           Offer    @relation(fields: [offerId], references: [id], onUpdate: Cascade, onDelete: Cascade)
+
+  @@map("recruitmentSteps")
+}
+
+model Rating {
+  id                String          @id @default(uuid())
+  applicationId     String
+  recruitmentStepId String
+  grade             Float
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  application       Application     @relation(fields: [applicationId], references: [id], onUpdate: Cascade, onDelete: Cascade)
+  recruitmentStep   RecruitmentStep @relation(fields: [recruitmentStepId], references: [id], onUpdate: Cascade, onDelete: Cascade)
+
+  @@unique([applicationId, recruitmentStepId])
+  @@map("ratings")
+}
+
+model Application {
+  id          String   @id @default(uuid())
+  candidateId String
+  offerId     String
+  feedback    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  candidate   User     @relation(fields: [candidateId], references: [id], onUpdate: Cascade, onDelete: Cascade)
+  offer       Offer    @relation(fields: [offerId], references: [id], onUpdate: Cascade, onDelete: Cascade)
+  ratings     Rating[]
+
+  @@unique([offerId, candidateId])
+  @@map("applications")
+}
+
+model Notification {
+  id          String               @id @default(uuid())
+  type        NotificationTypeEnum
+  unread      Boolean              @default(true)
+  message     String
+  image       String?
+  redirectUrl String?
+  recipientId String
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+  recipient   User                 @relation(fields: [recipientId], references: [id], onUpdate: Cascade, onDelete: Cascade)
+
+  @@index([id, recipientId])
+  @@map("notifications")
+}
+
+enum RoleEnum {
+  candidate
+  employer
+  admin
+}
+
+enum ExperienceLevelEnum {
+  junior
+  mid
+  senior
+}
+
+enum CompanySizeEnum {
+  small
+  medium
+  big
+  corporation
+}
+
+enum CompanyTypeEnum {
+  startup
+  softwareHouse
+  rd
+  ecommerce
+}
+
+enum AgreementTypeEnum {
+  b2b
+  permanent
+  mandate
+}
+
+enum NotificationTypeEnum {
+  newCandidate
+  feedback
+}
